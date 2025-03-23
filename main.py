@@ -26,21 +26,23 @@ df = df.where(pd.notnull(df), None)
 
 @app.get("/transaction_details")
 def get_data(
-    page: int = Query(1, ge=1),
-    page_size: int = Query(100, ge=1, le=1000)
+    page: int = Query(1, ge=1, description="Page number (starting at 1)"),
+    page_size: int = Query(100, ge=1, le=1000, description="Number of items per page")
 ):
-    df = load_csv_from_s3()  # <-- move inside
-    df = df.where(pd.notnull(df), None)
-
     total = len(df)
     start = (page - 1) * page_size
     end = start + page_size
-    result = df.iloc[start:end].to_dict(orient="records")
+
+    # If the starting index is beyond the available data, return 404
+    if start >= total:
+        raise HTTPException(status_code=404, detail="Page not found")
+
+    # Slice the dataframe and convert to a list of records
+    data = df.iloc[start:end].to_dict(orient="records")
 
     return {
+        "total": total,
         "page": page,
         "page_size": page_size,
-        "total": total,
-        "data": result
+        "data": data
     }
-
